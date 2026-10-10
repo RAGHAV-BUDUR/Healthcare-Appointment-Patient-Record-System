@@ -1,0 +1,50 @@
+@startuml use-case-records-admin
+title Use-Case Diagram 2 – Medical Records & Administration
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #F4FAF9
+  BorderColor #0E6E68
+}
+skinparam actorBorderColor #0E6E68
+
+actor Doctor
+actor Patient
+actor Admin
+
+rectangle "Healthcare Appointment & Patient Record System" {
+  usecase "Open patient chart" as R1
+  usecase "Verify care relationship" as R1a
+  usecase "Write consultation notes" as R2
+  usecase "Issue prescription" as R3
+  usecase "Edit record\n(new version)" as R4
+  usecase "View own medical history" as R5
+  usecase "Download prescription PDF" as R6
+  usecase "Record in audit log" as RL
+  usecase "Manage staff accounts" as A1
+  usecase "Manage doctor profiles" as A2
+  usecase "View dashboard" as A3
+  usecase "Export CSV report" as A4
+}
+
+Doctor --> R1
+Doctor --> R2
+Doctor --> R3
+Doctor --> R4
+Patient --> R5
+Patient --> R6
+Admin --> A1
+Admin --> A2
+Admin --> A3
+Admin --> A4
+R1 .> R1a : <<include>>
+R1 .> RL : <<include>>
+R2 <.. R4 : <<extend>>
+note right of RL
+  Every chart view, record change,
+  prescription, account change and
+  export writes an audit entry
+  (HAP-SR-007).
+end note
+@enduml
