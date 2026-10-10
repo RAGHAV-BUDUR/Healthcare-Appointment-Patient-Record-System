@@ -1,0 +1,57 @@
+@startuml component-diagram
+title Component Diagram – Healthcare Appointment & Patient Record System
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam component {
+  BackgroundColor #F4FAF9
+  BorderColor #0E6E68
+}
+skinparam package {
+  BorderColor #8A9BA3
+}
+
+actor "Patient / Doctor /\nReceptionist / Admin" as User
+
+package "Presentation layer" {
+  [Web Frontend\n(React)] as FE
+}
+
+package "Application layer (FastAPI, REST /api/v1)" as APP {
+  [Auth & User Service] as AUTH
+  [Patient Service] as PAT
+  [Doctor & Schedule Service] as DOC
+  [Appointment Service] as APT
+  [Medical Record Service] as MR
+  [Notification & Reporting Service] as NOTIF
+  [Audit Log] as AUDIT
+}
+
+package "Data layer" {
+  database "Database\n(PostgreSQL)" as DB
+}
+
+cloud "Email Gateway\n(SMTP)" as SMTP
+
+User --> FE : HTTPS
+FE --> APP : REST / JSON over HTTPS\n(Bearer JWT)
+
+APT --> DOC : lock / update slots
+APT --> NOTIF : appointment events
+DOC --> NOTIF : leave events
+MR --> APT : care relationship,\nset COMPLETED
+MR --> AUDIT : READ / WRITE / DENIED
+AUTH --> AUDIT : account changes
+
+APP --> DB : SQL over TLS
+NOTIF --> SMTP : SMTP / STARTTLS
+
+note right of AUTH
+  Every service calls the shared
+  JWT + role check of the
+  Auth & User Service before
+  running a request (HAP-SR-004).
+end note
+@enduml
