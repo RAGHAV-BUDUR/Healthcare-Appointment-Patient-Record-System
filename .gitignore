@@ -22,3 +22,6 @@ Thumbs.db
 
 # Word lock files
 ~$*.docx
+
+# Build output (CD)
+build/
