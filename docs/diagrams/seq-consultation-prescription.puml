@@ -1,0 +1,60 @@
+@startuml seq-consultation-prescription
+title Sequence Diagram 2 – Doctor records a consultation and issues a prescription
+skinparam shadowing false
+skinparam sequence {
+  ParticipantBackgroundColor #F4FAF9
+  ParticipantBorderColor #0E6E68
+  LifeLineBorderColor #8A9BA3
+}
+autonumber
+
+actor Doctor
+participant "Web Frontend" as FE
+participant "Auth & User Service" as AUTH
+participant "Medical Record Service" as MR
+participant "Appointment Service" as APT
+participant "Audit Log" as AUDIT
+database "Database\n(PostgreSQL)" as DB
+participant "Notification &\nReporting Service" as NOTIF
+
+Doctor -> FE : open patient from today's list
+FE -> MR : GET /api/v1/patients/{id}/records
+MR -> AUTH : verify JWT, role = DOCTOR
+AUTH --> MR : OK (doctorId)
+MR -> APT : hasCareRelationship(doctorId, patientId)?
+
+alt care relationship exists
+  APT --> MR : yes
+  MR -> DB : read profile, visits, prescriptions
+  DB --> MR : rows (encrypted fields)
+  MR -> MR : decrypt sensitive fields (AES-256-GCM)
+  MR -> AUDIT : log READ (doctorId, patientId, IP)
+  AUDIT -> DB : INSERT audit_log
+  MR --> FE : 200 chart (allergies first)
+  FE --> Doctor : show chart
+
+  Doctor -> FE : enter symptoms, vitals, diagnosis, notes,\nprescription items
+  FE -> MR : POST /api/v1/appointments/{id}/consultation
+  MR -> APT : get status of appointment {id}
+  APT --> MR : CHECKED_IN
+  MR -> MR : validate + encrypt fields
+  MR -> DB : INSERT consultation (version 1)
+  MR -> APT : set status COMPLETED
+  APT -> DB : UPDATE appointment status
+  MR --> FE : 201 {consultationId}
+  FE -> MR : POST /api/v1/appointments/{id}/prescriptions
+  MR -> DB : INSERT prescription + items
+  MR -> AUDIT : log WRITE (consultation, prescription)
+  AUDIT -> DB : INSERT audit_log
+  MR -> NOTIF : PrescriptionIssued(patientId)
+  NOTIF -> DB : INSERT in-app notification
+  MR --> FE : 201 {prescriptionId}
+  FE --> Doctor : "Saved. Prescription PDF ready"
+else no care relationship
+  APT --> MR : no
+  MR -> AUDIT : log DENIED (doctorId, patientId, IP)
+  AUDIT -> DB : INSERT audit_log
+  MR --> FE : 403 NO_CARE_RELATIONSHIP
+  FE --> Doctor : "You can only open charts of your own patients"
+end
+@enduml
