@@ -6,6 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$ROOT/build}"
 mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"   # absolute, because each build step runs inside docs/<folder>
 
 build() {  # build <folder> <output name> <file>...
   local dir="$1" name="$2"; shift 2
