@@ -1,0 +1,54 @@
+@startuml seq-book-appointment
+title Sequence Diagram 1 – Patient books an appointment (with conflict check)
+skinparam shadowing false
+skinparam sequence {
+  ParticipantBackgroundColor #F4FAF9
+  ParticipantBorderColor #0E6E68
+  LifeLineBorderColor #8A9BA3
+}
+autonumber
+
+actor Patient
+participant "Web Frontend" as FE
+participant "Auth & User Service" as AUTH
+participant "Appointment Service" as APT
+database "Database\n(PostgreSQL)" as DB
+participant "Notification &\nReporting Service" as NOTIF
+participant "Email Gateway\n(SMTP)" as SMTP
+
+Patient -> FE : choose doctor and date
+FE -> APT : GET /api/v1/slots?doctorId=&date=
+APT -> AUTH : verify JWT, role = PATIENT
+AUTH --> APT : OK (userId, role)
+APT -> DB : SELECT FREE slots for doctor/date
+DB --> APT : slot list
+APT --> FE : 200 [slots]
+FE --> Patient : show free slots
+
+Patient -> FE : pick slot, enter reason
+FE -> APT : POST /api/v1/appointments {slotId, reason}
+APT -> AUTH : verify JWT, role = PATIENT
+AUTH --> APT : OK
+APT -> DB : BEGIN
+APT -> DB : SELECT slot ... FOR UPDATE
+DB --> APT : slot row (locked)
+
+alt slot is FREE and patient has no overlapping active appointment
+  APT -> DB : INSERT appointment (status BOOKED)
+  APT -> DB : UPDATE slot SET status = BOOKED
+  APT -> DB : COMMIT
+  APT -> NOTIF : AppointmentBooked(appointmentId)
+  NOTIF -> SMTP : send confirmation email
+  NOTIF -> DB : INSERT in-app notification
+  APT --> FE : 201 {appointmentId, status: BOOKED}
+  FE --> Patient : "Appointment confirmed"
+else slot already BOOKED / BLOCKED
+  APT -> DB : ROLLBACK
+  APT --> FE : 409 SLOT_TAKEN
+  FE --> Patient : "Slot just taken, pick another time"
+else patient already has an overlapping appointment
+  APT -> DB : ROLLBACK
+  APT --> FE : 409 PATIENT_OVERLAP
+  FE --> Patient : "You already have an appointment at this time"
+end
+@enduml
