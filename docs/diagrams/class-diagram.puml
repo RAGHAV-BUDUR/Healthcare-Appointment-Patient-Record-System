@@ -1,0 +1,120 @@
+@startuml class-diagram
+title Domain Class Diagram
+skinparam shadowing false
+skinparam class {
+  BackgroundColor #F4FAF9
+  BorderColor #0E6E68
+}
+hide methods
+
+enum Role {
+  PATIENT
+  DOCTOR
+  RECEPTIONIST
+  ADMIN
+}
+enum SlotStatus {
+  FREE
+  BOOKED
+  BLOCKED
+}
+enum AppointmentStatus {
+  BOOKED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+class User {
+  id : UUID
+  email : string
+  passwordHash : string
+  role : Role
+  isActive : bool
+  failedLogins : int
+  lockedUntil : datetime
+}
+class Patient {
+  mrn : string
+  fullName : string
+  dateOfBirth : date
+  gender : string
+  phone : string
+  address : string
+  bloodGroup : string
+  allergies : string
+  emergencyContact : string
+}
+class Doctor {
+  name : string
+  specialization : string
+  department : string
+  qualification : string
+  slotMinutes : int
+}
+class Availability {
+  weekday : int
+  startTime : time
+  endTime : time
+}
+class Slot {
+  id : UUID
+  start : datetime
+  end : datetime
+  status : SlotStatus
+}
+class Appointment {
+  id : UUID
+  reason : string
+  status : AppointmentStatus
+  createdBy : UUID
+  createdAt : datetime
+}
+class Consultation {
+  id : UUID
+  currentVersion : int
+}
+class ConsultationVersion {
+  version : int
+  symptoms : encrypted
+  vitals : json
+  diagnosis : encrypted
+  notes : encrypted
+  author : UUID
+  createdAt : datetime
+}
+class Prescription {
+  id : UUID
+  issuedAt : datetime
+  version : int
+}
+class PrescriptionItem {
+  medicine : encrypted
+  dosage : string
+  frequency : string
+  durationDays : int
+  instructions : string
+}
+class AuditLogEntry {
+  id : bigint
+  userId : UUID
+  role : Role
+  action : string
+  recordId : UUID
+  ip : string
+  timestamp : datetime
+}
+
+User "1" -- "0..1" Patient
+User "1" -- "0..1" Doctor
+Doctor "1" -- "*" Availability
+Doctor "1" -- "*" Slot
+Slot "1" -- "0..1" Appointment : active >
+Patient "1" -- "*" Appointment
+Appointment "1" -- "0..1" Consultation
+Consultation "1" *-- "1..*" ConsultationVersion
+Appointment "1" -- "0..*" Prescription
+Prescription "1" *-- "1..*" PrescriptionItem
+User "1" -- "*" AuditLogEntry : performs >
+@enduml
